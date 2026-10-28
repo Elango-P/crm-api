@@ -231,7 +231,7 @@ export async function importExcelToFirestore(options: {
   }
 
   // 6. Persist to Firestore
-  console.log(`\n💾 Writing ${customersToSave.size} customers and ${rfqsToSave.length} RFQs to Cloud Firestore...`);
+  console.log(`\n💾 Writing ${customersToSave.size} customers and ${rfqsToSave.length} RFQs to Firestore...`);
 
   if (isReal && db) {
     const batch = db.batch();
@@ -247,10 +247,17 @@ export async function importExcelToFirestore(options: {
     }
 
     await batch.commit();
-    console.log(`✅ Successfully committed to Cloud Firestore!`);
+    console.log(`✅ Successfully committed to live Cloud Firestore project: ${process.env.FIREBASE_PROJECT_ID || 'my-portfolio-e1326'}!`);
   } else {
-    // In-memory simulator mode
-    console.log(`ℹ️ [Development/Simulated Mode]: Added records to in-memory Firestore.`);
+    // Development / Simulator mode: save into crmRepository
+    for (const customer of customersToSave.values()) {
+      await crmRepository.upsertCustomer(customer);
+    }
+    for (const rfq of rfqsToSave) {
+      await crmRepository.upsertRfq(rfq);
+    }
+    console.log(`✅ Stored ${customersToSave.size} customers and ${rfqsToSave.length} RFQs in the active repository!`);
+    console.log(`   (To write directly to live Cloud Firestore, create Firestore in the console and provide your service-account.json)`);
   }
 
   // 7. Print summary table

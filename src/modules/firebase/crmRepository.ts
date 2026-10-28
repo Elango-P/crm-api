@@ -148,6 +148,40 @@ export class CrmRepository {
     }
     return this.inMemoryRfqs.find((r) => r.id === id) || null;
   }
+
+  /**
+   * Upsert customer record
+   */
+  async upsertCustomer(customer: CustomerRecord): Promise<void> {
+    const db = getFirestoreDb();
+    if (isRealFirebaseConfigured() && db) {
+      await db.collection('customers').doc(customer.id).set(customer, { merge: true });
+      return;
+    }
+    const idx = this.inMemoryCustomers.findIndex((c) => c.id === customer.id);
+    if (idx >= 0) {
+      this.inMemoryCustomers[idx] = { ...this.inMemoryCustomers[idx], ...customer };
+    } else {
+      this.inMemoryCustomers.push(customer);
+    }
+  }
+
+  /**
+   * Upsert RFQ record
+   */
+  async upsertRfq(rfq: RfqRecord): Promise<void> {
+    const db = getFirestoreDb();
+    if (isRealFirebaseConfigured() && db) {
+      await db.collection('rfqs').doc(rfq.id).set(rfq, { merge: true });
+      return;
+    }
+    const idx = this.inMemoryRfqs.findIndex((r) => r.id === rfq.id);
+    if (idx >= 0) {
+      this.inMemoryRfqs[idx] = { ...this.inMemoryRfqs[idx], ...rfq };
+    } else {
+      this.inMemoryRfqs.push(rfq);
+    }
+  }
 }
 
 export const crmRepository = new CrmRepository();
