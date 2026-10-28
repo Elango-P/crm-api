@@ -1,0 +1,53 @@
+services:
+  # REST API Server
+  sync-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: firebase-zoho-sync-api
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    environment:
+      - NODE_ENV=production
+      - PORT=4000
+      - LOG_LEVEL=info
+      - ADMIN_API_KEY=${ADMIN_API_KEY:-dev-admin-insecure-api-key-for-local-testing-only}
+      - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID:-my-portfolio-e1326}
+      - FIREBASE_CLIENT_EMAIL=${FIREBASE_CLIENT_EMAIL}
+      - FIREBASE_PRIVATE_KEY=${FIREBASE_PRIVATE_KEY}
+      - ZOHO_PRODUCT=${ZOHO_PRODUCT:-zoho_books}
+      - ZOHO_CLIENT_ID=${ZOHO_CLIENT_ID}
+      - ZOHO_CLIENT_SECRET=${ZOHO_CLIENT_SECRET}
+      - ZOHO_REFRESH_TOKEN=${ZOHO_REFRESH_TOKEN}
+      - ZOHO_ORGANIZATION_ID=${ZOHO_ORGANIZATION_ID}
+      - SYNC_SCHEDULE=${SYNC_SCHEDULE:-*/5 * * * *}
+      - SYNC_DRY_RUN=${SYNC_DRY_RUN:-false}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # Optional Dedicated Background Worker Container (Demonstrating Multi-Node Distributed Locking)
+  sync-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: firebase-zoho-sync-worker
+    restart: unless-stopped
+    command: ["node", "dist/worker.js"]
+    environment:
+      - NODE_ENV=production
+      - LOG_LEVEL=info
+      - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID:-my-portfolio-e1326}
+      - FIREBASE_CLIENT_EMAIL=${FIREBASE_CLIENT_EMAIL}
+      - FIREBASE_PRIVATE_KEY=${FIREBASE_PRIVATE_KEY}
+      - ZOHO_PRODUCT=${ZOHO_PRODUCT:-zoho_books}
+      - ZOHO_CLIENT_ID=${ZOHO_CLIENT_ID}
+      - ZOHO_CLIENT_SECRET=${ZOHO_CLIENT_SECRET}
+      - ZOHO_REFRESH_TOKEN=${ZOHO_REFRESH_TOKEN}
+      - ZOHO_ORGANIZATION_ID=${ZOHO_ORGANIZATION_ID}
+      - SYNC_SCHEDULE=${SYNC_SCHEDULE:-*/5 * * * *}
+      - SYNC_DRY_RUN=${SYNC_DRY_RUN:-false}
