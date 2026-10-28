@@ -9,6 +9,9 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "start:worker": "node dist/worker.js",
+    "excel:sample": "tsx scripts/generate-sample-excel.ts",
+    "excel:import": "tsx scripts/import-excel-to-firestore.ts",
+    "excel:sync": "tsx scripts/import-excel-to-firestore.ts --sync",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"

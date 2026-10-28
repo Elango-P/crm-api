@@ -269,7 +269,51 @@ x-api-key: <ADMIN_API_KEY>
 
 ---
 
-## 7. Production AWS Deployment Guide
+## 7. Importing RFQ, BOM & Costing from Excel (Google Drive / Local)
+
+If your engineering and sales team manages **RFQ**, **BOM (Bill of Materials)**, and **Costing** in Excel files connected to Google Drive, you can use the built-in importer to parse, merge, and persist them into Firestore, and immediately trigger synchronization to Zoho ERP.
+
+### Expected Excel Structure
+
+The importer supports either a single multi-tab workbook with sheets named `RFQ`, `BOM`, and `Costing`, or separate files:
+
+1. **RFQ Sheet**:
+   - Headers: `RFQ Number`, `Customer Name`, `Contact Person`, `Email`, `Phone`, `Company`, `Product Name`, `Part Number`, `Quantity`, `Target Delivery Date`, `Status`, `Stage`, `Assignee`, `Notes`
+2. **BOM Sheet**:
+   - Headers: `RFQ Number`, `Item No`, `SKU`, `Description`, `Material`, `Qty Per Unit`, `Total Qty`
+3. **Costing Sheet**:
+   - Headers: `SKU`, `Description`, `Raw Material Cost`, `Machining & Labor`, `Overhead Cost`, `Margin Pct`, `Unit Selling Price`
+
+### 1. Generate Sample Excel Template
+```bash
+npm run excel:sample
+```
+Generates a realistic multi-sheet template at `sample_rfq_bom_costing.xlsx`.
+
+### 2. Import Local Excel File to Firebase
+```bash
+npm run excel:import -- --file path/to/your-file.xlsx
+```
+
+### 3. Import from Google Drive Link directly
+Set the Google Drive sharing settings to *"Anyone with the link can view"*, then pass the link:
+```bash
+npm run excel:import -- --drive "https://drive.google.com/file/d/YOUR_FILE_ID/view"
+```
+Or for Google Sheets:
+```bash
+npm run excel:import -- --drive "https://docs.google.com/spreadsheets/d/YOUR_SPREADSHEET_ID/edit"
+```
+
+### 4. Import & Immediately Sync to Zoho ERP
+```bash
+npm run excel:import -- --file path/to/your-file.xlsx --sync
+```
+This parses the Excel sheets, updates Cloud Firestore documents, and triggers the incremental sync engine to push all new/updated contacts, items, and sales orders directly into Zoho ERP.
+
+---
+
+## 8. Production AWS Deployment Guide
 
 ### Recommended AWS Architecture (ECS Fargate + Secrets Manager)
 
