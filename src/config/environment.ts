@@ -13,20 +13,41 @@ const envSchema = z.object({
   // Firebase
   FIREBASE_DATABASE_TYPE: z.enum(['firestore', 'realtime']).default('firestore'),
   FIREBASE_PROJECT_ID: z.string().min(1, 'FIREBASE_PROJECT_ID is required').default('my-portfolio-e1326'),
-  FIREBASE_CLIENT_EMAIL: z.string().email().optional(),
-  FIREBASE_PRIVATE_KEY: z.string().optional(),
-  FIREBASE_SERVICE_ACCOUNT_PATH: z.string().optional(),
-  FIREBASE_DATABASE_URL: z.string().url().optional(),
-  TENANT_ID: z.string().optional(),
+  FIREBASE_CLIENT_EMAIL: z.preprocess(
+    (val) => (typeof val === 'string' && val.trim() === '' ? undefined : val),
+    z.string().email().optional()
+  ),
+  FIREBASE_PRIVATE_KEY: z.preprocess(
+    (val) => (typeof val === 'string' && val.trim() === '' ? undefined : val),
+    z.string().optional()
+  ),
+  FIREBASE_SERVICE_ACCOUNT_PATH: z.preprocess(
+    (val) => (typeof val === 'string' && val.trim() === '' ? undefined : val),
+    z.string().optional()
+  ),
+  FIREBASE_DATABASE_URL: z.preprocess(
+    (val) => (typeof val === 'string' && val.trim() === '' ? undefined : val),
+    z.string().url().optional()
+  ),
+  TENANT_ID: z.preprocess(
+    (val) => (typeof val === 'string' && val.trim() === '' ? undefined : val),
+    z.string().optional()
+  ),
 
   // Zoho
   ZOHO_PRODUCT: z.enum(['zoho_books', 'zoho_inventory', 'zoho_crm']).default('zoho_books'),
   ZOHO_CLIENT_ID: z.string().default('placeholder_client_id'),
   ZOHO_CLIENT_SECRET: z.string().default('placeholder_client_secret'),
-  ZOHO_REFRESH_TOKEN: z.string().default('placeholder_refresh_token'),
+  ZOHO_REFRESH_TOKEN: z.preprocess(
+    (val) => (typeof val === 'string' && val.trim() === '' ? undefined : val),
+    z.string().optional().default('placeholder_refresh_token')
+  ),
   ZOHO_ACCOUNTS_URL: z.string().url().default('https://accounts.zoho.com'),
   ZOHO_API_BASE_URL: z.string().url().default('https://www.zohoapis.com/books/v3'),
-  ZOHO_ORGANIZATION_ID: z.string().optional(),
+  ZOHO_ORGANIZATION_ID: z.preprocess(
+    (val) => (typeof val === 'string' && val.trim() === '' ? undefined : val),
+    z.string().optional()
+  ),
 
   // Sync Settings
   SYNC_SCHEDULE: z.string().default('*/5 * * * *'),
