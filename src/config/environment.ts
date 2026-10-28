@@ -13,6 +13,10 @@ const envSchema = z.object({
   // Firebase
   FIREBASE_DATABASE_TYPE: z.enum(['firestore', 'realtime']).default('firestore'),
   FIREBASE_PROJECT_ID: z.string().min(1, 'FIREBASE_PROJECT_ID is required').default('my-portfolio-e1326'),
+  GOOGLE_APPLICATION_CREDENTIALS: z.preprocess(
+    (val) => (typeof val === 'string' && val.trim() === '' ? undefined : val),
+    z.string().optional()
+  ),
   FIREBASE_CLIENT_EMAIL: z.preprocess(
     (val) => (typeof val === 'string' && val.trim() === '' ? undefined : val),
     z.string().email().optional()

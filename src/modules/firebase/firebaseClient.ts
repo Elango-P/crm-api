@@ -15,9 +15,14 @@ export function initFirebase(): { db: admin.firestore.Firestore; isReal: boolean
   try {
     let credential: admin.credential.Credential | undefined;
 
-    if (config.FIREBASE_SERVICE_ACCOUNT_PATH && fs.existsSync(config.FIREBASE_SERVICE_ACCOUNT_PATH)) {
-      logger.info({ path: config.FIREBASE_SERVICE_ACCOUNT_PATH }, 'Initializing Firebase Admin with service account file');
-      credential = admin.credential.cert(config.FIREBASE_SERVICE_ACCOUNT_PATH);
+    const serviceAccountPath =
+      config.GOOGLE_APPLICATION_CREDENTIALS ||
+      config.FIREBASE_SERVICE_ACCOUNT_PATH ||
+      process.env.GOOGLE_APPLICATION_CREDENTIALS;
+
+    if (serviceAccountPath && fs.existsSync(serviceAccountPath)) {
+      logger.info({ path: serviceAccountPath }, 'Initializing Firebase Admin with service account file');
+      credential = admin.credential.cert(serviceAccountPath);
     } else if (config.FIREBASE_CLIENT_EMAIL && config.FIREBASE_PRIVATE_KEY) {
       logger.info({ clientEmail: config.FIREBASE_CLIENT_EMAIL }, 'Initializing Firebase Admin with environment credentials');
       credential = admin.credential.cert({
