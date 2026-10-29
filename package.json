@@ -15,6 +15,7 @@
     "record:create": "tsx scripts/create-record.ts",
     "data:seed": "tsx scripts/seed-sample-data.ts",
     "firestore:verify": "tsx scripts/verify-firestore-data.ts",
+    "firestore:clean": "tsx scripts/remove-records.ts",
     "zoho:token": "tsx scripts/generate-zoho-token.ts",
     "test": "vitest run",
     "test:watch": "vitest",
