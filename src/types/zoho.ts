@@ -39,7 +39,7 @@ export interface ZohoItemPayload {
 
 export interface ZohoSalesOrderPayload {
   customer_id: string;
-  salesorder_number: string;
+  salesorder_number?: string;
   reference_number?: string;
   date?: string;
   shipment_date?: string;
@@ -69,6 +69,24 @@ export interface ZohoInvoicePayload {
   notes?: string;
 }
 
+export interface ZohoEstimatePayload {
+  customer_id: string;
+  estimate_number?: string;
+  reference_number?: string;
+  date?: string;
+  expiry_date?: string;
+  line_items: Array<{
+    item_id?: string;
+    name: string;
+    description?: string;
+    rate: number;
+    quantity: number;
+  }>;
+  notes?: string;
+  terms?: string;
+  discount?: number;
+}
+
 export interface ZohoApiResponse<T = any> {
   code: number;
   message: string;
@@ -80,5 +98,9 @@ export interface ZohoApiResponse<T = any> {
   salesorders?: T[];
   invoice?: T;
   invoices?: T[];
+  estimate?: T;
+  estimates?: T[];
+  quote?: T;
+  quotes?: T[];
   data?: T[];
 }

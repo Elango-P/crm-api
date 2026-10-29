@@ -1,4 +1,4 @@
-export type EntityType = 'customer' | 'item' | 'sales_order' | 'invoice';
+export type EntityType = 'customer' | 'item' | 'sales_order' | 'invoice' | 'quote';
 
 export type SyncStatus = 'PENDING' | 'SYNCED' | 'FAILED';
 

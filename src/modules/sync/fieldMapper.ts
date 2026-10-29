@@ -1,9 +1,10 @@
 import { z } from 'zod';
-import { CustomerRecord, ProductLine, RfqRecord } from '../../types/crm.js';
+import { CustomerRecord, ProductLine, RfqRecord, QuoteRecord } from '../../types/crm.js';
 import {
   ZohoContactPayload,
   ZohoItemPayload,
-  ZohoSalesOrderPayload
+  ZohoSalesOrderPayload,
+  ZohoEstimatePayload
 } from '../../types/zoho.js';
 
 // Validation Schemas
@@ -134,6 +135,52 @@ export class FieldMapper {
       shipment_date: shipmentDate,
       line_items: lineItems,
       notes: rfq.notes && rfq.notes.length > 0 ? rfq.notes.join('\n') : `Created from RFQ ${rfq.rfqNumber}`
+    };
+
+    return payload;
+  }
+
+  /**
+   * Map QuoteRecord -> ZohoEstimatePayload
+   */
+  mapQuoteToZohoEstimate(
+    quote: QuoteRecord,
+    zohoCustomerId: string,
+    resolvedItemMap: Map<string, string>
+  ): ZohoEstimatePayload {
+    const date = quote.issueDate || (quote.createdAt ? quote.createdAt.split('T')[0] : new Date().toISOString().split('T')[0]);
+    const expiryDate = quote.expiryDate || undefined;
+
+    const lineItems = (quote.lineItems || []).map((line) => {
+      const zohoItemId = resolvedItemMap.get(line.sku);
+      return {
+        item_id: zohoItemId,
+        name: line.description,
+        description: `SKU: ${line.sku}`,
+        rate: line.unitPrice,
+        quantity: line.qty
+      };
+    });
+
+    if (lineItems.length === 0) {
+      lineItems.push({
+        item_id: undefined,
+        name: `Quote Item - ${quote.quoteNumber}`,
+        description: `Quote Reference: ${quote.quoteNumber}`,
+        rate: quote.totalAmount || 0,
+        quantity: 1
+      });
+    }
+
+    const payload: ZohoEstimatePayload = {
+      customer_id: zohoCustomerId,
+      estimate_number: quote.quoteNumber,
+      reference_number: quote.rfqNumber || quote.quoteNumber,
+      date,
+      expiry_date: expiryDate,
+      line_items: lineItems,
+      notes: quote.notes && quote.notes.length > 0 ? quote.notes.join('\n') : `Quote ${quote.quoteNumber}`,
+      terms: quote.paymentTerms
     };
 
     return payload;

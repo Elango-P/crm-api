@@ -77,6 +77,96 @@ Based on inspection of the CRM repository, the source data resides in Google Clo
 }
 ```
 
+### Vendors (`vendors`)
+```typescript
+{
+  id: string;               // e.g., 'v-101'
+  name: string;             // Supplier / Vendor Business Name
+  company: string;          // Company Name
+  contact: string;          // Primary contact person
+  email: string;            // Business email
+  phone: string;            // Telephone / Mobile
+  category: string;         // 'Raw Materials & Metals' | 'CNC Machining & Tooling' | ...
+  gstin: string;            // Tax ID / GST Identification
+  paymentTerms: string;     // 'Net 30' | 'Net 45' | 'Advance'
+  status: 'Active' | 'Inactive' | 'Under Review';
+  address: { street, city, state, zip, country };
+  createdAt: string;
+  updatedAt: string;
+}
+```
+
+### Quotes (`quotes`)
+```typescript
+{
+  id: string;               // e.g., 'quo-001'
+  quoteNumber: string;      // e.g., 'QUO-2026-001'
+  rfqNumber?: string;       // Linked RFQ reference
+  customerId: string;       // Foreign key to customers.id
+  customerName: string;
+  issueDate: string;        // YYYY-MM-DD
+  expiryDate: string;       // YYYY-MM-DD
+  status: 'Draft' | 'Sent' | 'Approved' | 'Declined' | 'Converted to Order';
+  lineItems: ProductLine[];
+  subtotal: number;
+  taxRate: number;          // e.g., 18 for 18% GST
+  taxAmount: number;
+  totalAmount: number;
+  paymentTerms: string;
+  validityDays: number;
+  createdAt: string;
+  updatedAt: string;
+}
+```
+
+### Sales Orders (`sales_orders`)
+```typescript
+{
+  id: string;               // e.g., 'so-014'
+  salesOrderNumber: string; // e.g., 'SO-2026-014'
+  quoteNumber?: string;     // Linked Quote
+  rfqNumber?: string;       // Linked RFQ
+  customerId: string;       // Foreign key to customers.id
+  customerName: string;
+  orderDate: string;        // YYYY-MM-DD
+  expectedShipmentDate: string;
+  status: 'Draft' | 'Confirmed' | 'In Production' | 'Shipped' | 'Delivered' | 'Closed';
+  lineItems: ProductLine[];
+  subtotal: number;
+  taxAmount: number;
+  shippingCharges: number;
+  totalAmount: number;
+  billingAddress: AddressInfo;
+  shippingAddress: AddressInfo;
+  createdAt: string;
+  updatedAt: string;
+}
+```
+
+### Invoices (`invoices`)
+```typescript
+{
+  id: string;               // e.g., 'inv-091'
+  invoiceNumber: string;    // e.g., 'INV-2026-091'
+  salesOrderNumber: string; // Linked Sales Order
+  rfqNumber: string;        // Linked RFQ
+  customerId: string;       // Foreign key to customers.id
+  customerName: string;
+  invoiceDate: string;      // YYYY-MM-DD
+  dueDate: string;          // YYYY-MM-DD
+  paymentStatus: 'Unpaid' | 'Partially Paid' | 'Paid' | 'Overdue';
+  paymentTerms: string;     // e.g., 'Net 30'
+  lineItems: ProductLine[];
+  subtotal: number;
+  taxAmount: number;
+  totalAmount: number;
+  paidAmount: number;
+  balanceDue: number;
+  createdAt: string;
+  updatedAt: string;
+}
+```
+
 ---
 
 ## 3. Destination Entity Mapping (Zoho ERP)
@@ -269,7 +359,66 @@ x-api-key: <ADMIN_API_KEY>
 
 ---
 
-## 7. Importing RFQ, BOM & Costing from Excel (Google Drive / Local)
+## 7. Sample Data Seeding & CRM Endpoints
+
+### 1. Seeding Sample Data to Live Cloud Firestore
+You can seed realistic, linked B2B manufacturing sample data (Quotes, Sales Orders, Invoices, Vendors, Customers, RFQs) with a single command:
+```bash
+npm.cmd run data:seed
+```
+
+### 2. Verifying Firestore Data
+Inspect documents across all 6 collections directly in your terminal:
+```bash
+npm.cmd run firestore:verify
+```
+
+### 3. CRM REST API Endpoints
+The backend provides REST endpoints for querying and creating records in Cloud Firestore:
+
+| Resource | Endpoints | Description |
+|---|---|---|
+| **Vendors** | `GET /api/v1/vendors`<br>`POST /api/v1/vendors` | List or create suppliers and material vendors with tax details & terms |
+| **Quotes** | `GET /api/v1/quotes`<br>`POST /api/v1/quotes` | List or create quotations with itemized line items, GST & expiry |
+| **Sales Orders** | `GET /api/v1/sales-orders`<br>`POST /api/v1/sales-orders` | List or create approved sales orders with delivery dates & addresses |
+| **Invoices** | `GET /api/v1/invoices`<br>`POST /api/v1/invoices` | List or create tax invoices with payment status, paid amount & balance due |
+| **Customers** | `GET /api/v1/customers`<br>`POST /api/v1/customers` | Query and register customer accounts |
+| **RFQs** | `GET /api/v1/rfqs`<br>`POST /api/v1/rfqs` | Query and create RFQs linked to line items & sales order numbers |
+
+### 4. Comprehensive Sample Excel Generator
+Generate a 7-tab Excel workbook (`RFQ`, `BOM`, `Costing`, `Quotes`, `Sales Orders`, `Invoices`, `Vendors`):
+```bash
+npm.cmd run excel:sample
+```
+
+---
+
+## 7. Zoho Books API & OAuth 2.0 Integration
+
+The API provides a fully compliant **Zoho Books API v3** integration with automated OAuth 2.0 authorization-code flow, token refresh caching, organization information, and contact management.
+
+### Zoho OAuth 2.0 Endpoints
+
+| Endpoint | Method | Description | Auth Required |
+|---|---|---|---|
+| `/api/zoho/auth` | GET | Initiates OAuth flow, generates CSRF `state`, and redirects to Zoho consent screen. Pass `?format=json` for JSON response. | No |
+| `/api/zoho/callback` | GET | OAuth callback handler that verifies `state` and exchanges `code` for access & refresh tokens. | No |
+| `/api/zoho/token/refresh` | POST | Manually renews access token and returns safe expiry metadata. | Yes (`x-api-key`) |
+| `/api/zoho/config` | GET | Returns sanitized Zoho integration status (never exposes secrets). | No |
+
+### Zoho Books API Endpoints
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/api/zoho/organization` | GET | Fetch organization details and metadata from Zoho Books |
+| `/api/zoho/contacts` | GET | List contacts (supports `page`, `per_page`, `contact_name`, `email`, `sort_column`) |
+| `/api/zoho/contacts/:contactId` | GET | Get single contact by ID |
+| `/api/zoho/contacts` | POST | Create contact in Zoho Books (validated via Zod) |
+| `/api/zoho/contacts/:contactId` | PUT | Update contact in Zoho Books |
+
+---
+
+## 8. Importing RFQ, BOM & Costing from Excel (Google Drive / Local)
 
 If your engineering and sales team manages **RFQ**, **BOM (Bill of Materials)**, and **Costing** in Excel files connected to Google Drive, you can use the built-in importer to parse, merge, and persist them into Firestore, and immediately trigger synchronization to Zoho ERP.
 

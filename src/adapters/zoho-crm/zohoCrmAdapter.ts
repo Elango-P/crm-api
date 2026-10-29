@@ -3,7 +3,8 @@ import { ZohoClient } from '../../modules/zoho/zohoClient.js';
 import {
   ZohoContactPayload,
   ZohoItemPayload,
-  ZohoSalesOrderPayload
+  ZohoSalesOrderPayload,
+  ZohoEstimatePayload
 } from '../../types/zoho.js';
 import { logger } from '../../utils/logger.js';
 
@@ -97,6 +98,35 @@ export class ZohoCrmAdapter implements IZohoAdapter {
     return { zohoId, action: 'created' };
   }
 
+  async syncQuote(quote: ZohoEstimatePayload, existingZohoId?: string): Promise<SyncResult> {
+    const payload = {
+      data: [
+        {
+          id: existingZohoId,
+          Subject: `Quote ${quote.estimate_number || quote.reference_number || 'New Quote'}`,
+          Contact_Name: { id: quote.customer_id },
+          Valid_Till: quote.expiry_date,
+          Quoted_Items: quote.line_items.map((line) => ({
+            Product_Name: line.item_id ? { id: line.item_id } : undefined,
+            Product_Description: line.description || line.name,
+            List_Price: line.rate,
+            Quantity: line.quantity
+          }))
+        }
+      ]
+    };
+
+    if (existingZohoId) {
+      const res = await this.client.put('/Quotes', payload);
+      const zohoId = res.data?.[0]?.details?.id || existingZohoId;
+      return { zohoId, action: 'updated' };
+    }
+
+    const res = await this.client.post('/Quotes', payload);
+    const zohoId = res.data?.[0]?.details?.id || `crm_quo_${Date.now()}`;
+    return { zohoId, action: 'created' };
+  }
+
   async findContactByExternalId(firebaseId: string, email?: string): Promise<string | null> {
     try {
       if (email) {
@@ -122,6 +152,10 @@ export class ZohoCrmAdapter implements IZohoAdapter {
   }
 
   async findSalesOrderByReference(referenceNumber: string): Promise<string | null> {
+    return null;
+  }
+
+  async findQuoteByReference(referenceNumber: string): Promise<string | null> {
     return null;
   }
 }

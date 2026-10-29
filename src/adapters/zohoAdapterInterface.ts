@@ -1,7 +1,8 @@
 import {
   ZohoContactPayload,
   ZohoItemPayload,
-  ZohoSalesOrderPayload
+  ZohoSalesOrderPayload,
+  ZohoEstimatePayload
 } from '../types/zoho.js';
 
 export interface SyncResult {
@@ -15,8 +16,10 @@ export interface IZohoAdapter {
   syncContact(contact: ZohoContactPayload, existingZohoId?: string): Promise<SyncResult>;
   syncItem(item: ZohoItemPayload, existingZohoId?: string): Promise<SyncResult>;
   syncSalesOrder(order: ZohoSalesOrderPayload, existingZohoId?: string): Promise<SyncResult>;
+  syncQuote(quote: ZohoEstimatePayload, existingZohoId?: string): Promise<SyncResult>;
 
   findContactByExternalId(firebaseId: string, email?: string): Promise<string | null>;
   findItemBySku(sku: string): Promise<string | null>;
   findSalesOrderByReference(referenceNumber: string): Promise<string | null>;
+  findQuoteByReference(referenceNumber: string): Promise<string | null>;
 }

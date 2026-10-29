@@ -23,6 +23,7 @@ syncRouter.get('/status', async (req: Request, res: Response, next: NextFunction
   try {
     const stats = await syncRepository.getStats();
     const customerCheckpoint = await syncRepository.getCheckpoint('customer');
+    const quoteCheckpoint = await syncRepository.getCheckpoint('quote');
     const orderCheckpoint = await syncRepository.getCheckpoint('sales_order');
     const recentLogs = await syncRepository.getLogs(1);
 
@@ -37,6 +38,7 @@ syncRouter.get('/status', async (req: Request, res: Response, next: NextFunction
         stats,
         checkpoints: {
           customer: customerCheckpoint,
+          quote: quoteCheckpoint,
           sales_order: orderCheckpoint
         },
         lastJob: recentLogs[0] || null

@@ -18,11 +18,11 @@ const envSchema = z.object({
     z.string().optional()
   ),
   FIREBASE_CLIENT_EMAIL: z.preprocess(
-    (val) => (typeof val === 'string' && val.trim() === '' ? undefined : val),
+    (val) => (typeof val === 'string' ? val.trim() || undefined : val),
     z.string().email().optional()
   ),
   FIREBASE_PRIVATE_KEY: z.preprocess(
-    (val) => (typeof val === 'string' && val.trim() === '' ? undefined : val),
+    (val) => (typeof val === 'string' ? val.trim() || undefined : val),
     z.string().optional()
   ),
   FIREBASE_SERVICE_ACCOUNT_PATH: z.preprocess(
@@ -42,14 +42,25 @@ const envSchema = z.object({
   ZOHO_PRODUCT: z.enum(['zoho_books', 'zoho_inventory', 'zoho_crm']).default('zoho_books'),
   ZOHO_CLIENT_ID: z.string().default('placeholder_client_id'),
   ZOHO_CLIENT_SECRET: z.string().default('placeholder_client_secret'),
+  ZOHO_REDIRECT_URI: z.preprocess(
+    (val) => {
+      if (typeof val !== 'string') return val;
+      let cleaned = val.trim();
+      cleaned = cleaned.replace(/^https?:\/\/https?:\/\//i, 'https://');
+      cleaned = cleaned.replace(/([^:])\/\/+/g, '$1/');
+      return cleaned;
+    },
+    z.string().url().default('http://localhost:3000/api/zoho/callback')
+  ),
   ZOHO_REFRESH_TOKEN: z.preprocess(
-    (val) => (typeof val === 'string' && val.trim() === '' ? undefined : val),
+    (val) => (typeof val === 'string' ? val.trim() || undefined : val),
     z.string().optional().default('placeholder_refresh_token')
   ),
+  ZOHO_OAUTH_SCOPES: z.string().default('ZohoBooks.contacts.ALL,ZohoBooks.settings.READ'),
   ZOHO_ACCOUNTS_URL: z.string().url().default('https://accounts.zoho.com'),
   ZOHO_API_BASE_URL: z.string().url().default('https://www.zohoapis.com/books/v3'),
   ZOHO_ORGANIZATION_ID: z.preprocess(
-    (val) => (typeof val === 'string' && val.trim() === '' ? undefined : val),
+    (val) => (typeof val === 'string' ? val.trim() || undefined : val),
     z.string().optional()
   ),
 

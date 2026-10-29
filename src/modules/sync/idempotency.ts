@@ -21,7 +21,7 @@ export class IdempotencyManager {
    */
   async discoverExistingZohoRecord(
     adapter: IZohoAdapter,
-    entityType: 'customer' | 'item' | 'sales_order',
+    entityType: 'customer' | 'item' | 'sales_order' | 'quote',
     identifier: { firebaseId: string; email?: string; sku?: string; referenceNumber?: string }
   ): Promise<string | null> {
     try {
@@ -33,6 +33,9 @@ export class IdempotencyManager {
       }
       if (entityType === 'sales_order' && identifier.referenceNumber) {
         return await adapter.findSalesOrderByReference(identifier.referenceNumber);
+      }
+      if (entityType === 'quote' && identifier.referenceNumber) {
+        return await adapter.findQuoteByReference(identifier.referenceNumber);
       }
     } catch (err: any) {
       logger.warn({ error: err.message, entityType, identifier }, 'Failed to query Zoho for existing record during idempotency check');

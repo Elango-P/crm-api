@@ -3,7 +3,8 @@ import { ZohoClient } from '../../modules/zoho/zohoClient.js';
 import {
   ZohoContactPayload,
   ZohoItemPayload,
-  ZohoSalesOrderPayload
+  ZohoSalesOrderPayload,
+  ZohoEstimatePayload
 } from '../../types/zoho.js';
 import { logger } from '../../utils/logger.js';
 
@@ -54,6 +55,20 @@ export class ZohoBooksAdapter implements IZohoAdapter {
     return { zohoId, action: 'created' };
   }
 
+  async syncQuote(quote: ZohoEstimatePayload, existingZohoId?: string): Promise<SyncResult> {
+    if (existingZohoId) {
+      logger.info({ zohoId: existingZohoId, estimateNumber: quote.estimate_number }, 'Updating Zoho Books estimate/quote');
+      const res = await this.client.put(`/estimates/${existingZohoId}`, quote);
+      const zohoId = res.estimate?.estimate_id || (res as any).quote?.quote_id || existingZohoId;
+      return { zohoId, action: 'updated' };
+    }
+
+    logger.info({ estimateNumber: quote.estimate_number }, 'Creating new Zoho Books estimate/quote');
+    const res = await this.client.post('/estimates', quote);
+    const zohoId = res.estimate?.estimate_id || (res as any).quote?.quote_id || (res as any).data?.id || `books_est_${Date.now()}`;
+    return { zohoId, action: 'created' };
+  }
+
   async findContactByExternalId(firebaseId: string, email?: string): Promise<string | null> {
     try {
       if (email) {
@@ -94,6 +109,20 @@ export class ZohoBooksAdapter implements IZohoAdapter {
       return null;
     } catch (err: any) {
       logger.warn({ error: err.message, referenceNumber }, 'Error querying sales order by reference in Zoho Books');
+      return null;
+    }
+  }
+
+  async findQuoteByReference(referenceNumber: string): Promise<string | null> {
+    try {
+      const res = await this.client.get('/estimates', { reference_number: referenceNumber });
+      const estimates = res.estimates || [];
+      if (estimates.length > 0) {
+        return estimates[0].estimate_id;
+      }
+      return null;
+    } catch (err: any) {
+      logger.warn({ error: err.message, referenceNumber }, 'Error querying estimate/quote by reference in Zoho Books');
       return null;
     }
   }

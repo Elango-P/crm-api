@@ -6,6 +6,25 @@ import { config } from '../config/index.js';
 
 export const healthRouter = Router();
 
+healthRouter.get('/', (req: Request, res: Response) => {
+  res.json({
+    name: 'CRM Sync API',
+    status: 'online',
+    version: '1.0.0',
+    endpoints: {
+      health: '/health',
+      customers: '/api/v1/customers',
+      rfqs: '/api/v1/rfqs',
+      syncStatus: '/api/v1/sync/status',
+      syncRun: '/api/v1/sync/run',
+      zohoAuth: '/api/zoho/auth',
+      zohoCallback: '/api/zoho/callback',
+      zohoOrganization: '/api/zoho/organization',
+      zohoContacts: '/api/zoho/contacts'
+    }
+  });
+});
+
 healthRouter.get('/health', async (req: Request, res: Response) => {
   const firebaseStatus = isRealFirebaseConfigured() ? 'connected' : 'simulated_fallback';
   const zohoConfigured = zohoTokenManager.isConfigured();

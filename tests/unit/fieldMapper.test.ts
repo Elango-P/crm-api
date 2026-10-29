@@ -85,4 +85,37 @@ describe('FieldMapper Unit Tests', () => {
     expect(orderPayload.line_items[0].item_id).toBe('zoho_item_A');
     expect(orderPayload.line_items[0].quantity).toBe(5);
   });
+
+  it('should map QuoteRecord to ZohoEstimatePayload correctly', () => {
+    const quote = {
+      id: 'quo-101',
+      quoteNumber: 'QUO-2026-101',
+      rfqNumber: 'RFQ-2026-003',
+      customerId: 'c-101',
+      customerName: 'Crestline Switchgear',
+      issueDate: '2026-10-23',
+      expiryDate: '2026-11-23',
+      status: 'Sent' as const,
+      lineItems: [
+        { sku: 'SKU-A', description: 'Assembly Base', qty: 5, unitPrice: 800, total: 4000 }
+      ],
+      subtotal: 4000,
+      totalAmount: 4720,
+      paymentTerms: 'Net 30',
+      notes: ['Valid for 30 days']
+    };
+
+    const itemMap = new Map([['SKU-A', 'zoho_item_A']]);
+    const estimate = fieldMapper.mapQuoteToZohoEstimate(quote, 'zoho_cust_101', itemMap);
+
+    expect(estimate.customer_id).toBe('zoho_cust_101');
+    expect(estimate.estimate_number).toBe('QUO-2026-101');
+    expect(estimate.reference_number).toBe('RFQ-2026-003');
+    expect(estimate.date).toBe('2026-10-23');
+    expect(estimate.expiry_date).toBe('2026-11-23');
+    expect(estimate.line_items).toHaveLength(1);
+    expect(estimate.line_items[0].item_id).toBe('zoho_item_A');
+    expect(estimate.line_items[0].rate).toBe(800);
+    expect(estimate.terms).toBe('Net 30');
+  });
 });

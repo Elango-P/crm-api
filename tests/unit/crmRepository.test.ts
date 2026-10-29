@@ -37,4 +37,35 @@ describe('CrmRepository Unit Tests', () => {
     const tenantCustomers = await crmRepository.getCustomers({ tenantId: 'tenant-non-existent' });
     expect(tenantCustomers).toHaveLength(0);
   });
+
+  it('should retrieve seeded vendors successfully', async () => {
+    const vendors = await crmRepository.getVendors();
+    expect(vendors.length).toBeGreaterThanOrEqual(5);
+    expect(vendors[0]).toHaveProperty('category');
+    expect(vendors[0]).toHaveProperty('paymentTerms');
+  });
+
+  it('should retrieve seeded quotes with line items and totals', async () => {
+    const quotes = await crmRepository.getQuotes();
+    expect(quotes.length).toBeGreaterThanOrEqual(3);
+    expect(quotes[0]).toHaveProperty('quoteNumber');
+    expect(quotes[0]).toHaveProperty('totalAmount');
+    expect(quotes[0].lineItems.length).toBeGreaterThan(0);
+  });
+
+  it('should retrieve seeded sales orders with shipping details', async () => {
+    const orders = await crmRepository.getSalesOrders();
+    expect(orders.length).toBeGreaterThanOrEqual(3);
+    expect(orders[0]).toHaveProperty('salesOrderNumber');
+    expect(orders[0]).toHaveProperty('orderDate');
+    expect(orders[0].lineItems.length).toBeGreaterThan(0);
+  });
+
+  it('should retrieve seeded invoices with payment status and balance due', async () => {
+    const invoices = await crmRepository.getInvoices();
+    expect(invoices.length).toBeGreaterThanOrEqual(3);
+    expect(invoices[0]).toHaveProperty('invoiceNumber');
+    expect(invoices[0]).toHaveProperty('balanceDue');
+    expect(invoices[0]).toHaveProperty('paymentStatus');
+  });
 });

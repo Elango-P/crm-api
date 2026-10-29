@@ -6,7 +6,7 @@ import { idempotencyManager } from './idempotency.js';
 import { getZohoAdapter } from '../../adapters/adapterFactory.js';
 import { hashPayload } from '../../utils/crypto.js';
 import { logger } from '../../utils/logger.js';
-import { CustomerRecord, RfqRecord } from '../../types/crm.js';
+import { CustomerRecord, RfqRecord, QuoteRecord } from '../../types/crm.js';
 import { SyncJobLog, SyncMapping } from '../../types/sync.js';
 import { config } from '../../config/index.js';
 
@@ -38,13 +38,17 @@ export class SyncEngine {
       if (options.mode === 'FULL') {
         await syncRepository.resetCheckpoint('customer');
         await syncRepository.resetCheckpoint('item');
+        await syncRepository.resetCheckpoint('quote');
         await syncRepository.resetCheckpoint('sales_order');
       }
 
-      // 2. Sync Customers first (dependency for orders)
+      // 2. Sync Customers first (dependency for orders and quotes)
       await this.syncCustomers(jobLog, options);
 
-      // 3. Sync RFQs & Line Items (Orders depend on customers and items)
+      // 3. Sync Quotes (Zoho Estimates / Quotes)
+      await this.syncQuotes(jobLog, options);
+
+      // 4. Sync RFQs & Line Items (Orders depend on customers and items)
       await this.syncRfqs(jobLog, options);
 
       jobLog.completedAt = new Date().toISOString();
@@ -176,6 +180,178 @@ export class SyncEngine {
       lastSyncCompletedAt: new Date().toISOString(),
       status: 'IDLE',
       totalProcessedCount: checkpoint.totalProcessedCount + customers.length
+    });
+  }
+
+  /**
+   * Synchronize Quotes from CRM to Zoho Estimates / Quotes
+   */
+  private async syncQuotes(
+    jobLog: SyncJobLog,
+    options: { mode: 'FULL' | 'INCREMENTAL'; tenantId?: string }
+  ): Promise<void> {
+    const adapter = getZohoAdapter();
+    const checkpoint = await syncRepository.getCheckpoint('quote');
+    const watermark = options.mode === 'INCREMENTAL' ? checkpoint.lastWatermark : undefined;
+
+    let highestWatermark = checkpoint.lastWatermark;
+    const quotes = await crmRepository.getQuotes({
+      watermark,
+      tenantId: options.tenantId,
+      batchSize: config.SYNC_BATCH_SIZE
+    });
+
+    for (const quote of quotes) {
+      jobLog.totalProcessed++;
+      const mapping = await syncRepository.getMapping('quote', quote.id);
+
+      try {
+        // 1. Resolve Customer Zoho ID
+        let zohoCustomerId: string | undefined;
+        if (quote.customerId) {
+          const customerMapping = await syncRepository.getMapping('customer', quote.customerId);
+          zohoCustomerId = customerMapping?.zohoId;
+
+          if (!zohoCustomerId) {
+            const customer = await crmRepository.getCustomerById(quote.customerId);
+            if (customer) {
+              const custPayload = fieldMapper.mapCustomerToZoho(customer);
+              const custRes = await adapter.syncContact(custPayload);
+              zohoCustomerId = custRes.zohoId;
+              await syncRepository.saveMapping({
+                id: `customer_${customer.id}`,
+                entityType: 'customer',
+                firebaseId: customer.id,
+                zohoId: custRes.zohoId,
+                lastSyncedHash: hashPayload(custPayload),
+                syncStatus: 'SYNCED',
+                attemptCount: 1,
+                lastAttemptAt: new Date().toISOString(),
+                lastSuccessAt: new Date().toISOString()
+              });
+            }
+          }
+        }
+
+        if (!zohoCustomerId) {
+          zohoCustomerId = (await idempotencyManager.discoverExistingZohoRecord(adapter, 'customer', {
+            firebaseId: quote.customerId || quote.id,
+            email: quote.email
+          })) || undefined;
+        }
+
+        if (!zohoCustomerId) {
+          const newCust = fieldMapper.mapCustomerToZoho({
+            id: quote.customerId || `c-${quote.id}`,
+            name: quote.customerName || 'Customer',
+            email: quote.email || 'customer@example.com',
+            phone: quote.phone,
+            company: quote.customerName
+          });
+          const custRes = await adapter.syncContact(newCust);
+          zohoCustomerId = custRes.zohoId;
+        }
+
+        // 2. Sync product lines to Zoho items
+        const resolvedItemMap = new Map<string, string>();
+        for (const line of quote.lineItems || []) {
+          const itemMapping = await syncRepository.getMapping('item', line.sku);
+          let zohoItemId = itemMapping?.zohoId;
+
+          if (!zohoItemId) {
+            zohoItemId = (await idempotencyManager.discoverExistingZohoRecord(adapter, 'item', {
+              firebaseId: line.sku,
+              sku: line.sku
+            })) || undefined;
+          }
+
+          const itemPayload = fieldMapper.mapProductLineToZoho(line);
+          const itemRes = await adapter.syncItem(itemPayload, zohoItemId);
+          resolvedItemMap.set(line.sku, itemRes.zohoId);
+
+          await syncRepository.saveMapping({
+            id: `item_${line.sku}`,
+            entityType: 'item',
+            firebaseId: line.sku,
+            zohoId: itemRes.zohoId,
+            lastSyncedHash: hashPayload(itemPayload),
+            syncStatus: 'SYNCED',
+            attemptCount: (itemMapping?.attemptCount || 0) + 1,
+            lastAttemptAt: new Date().toISOString(),
+            lastSuccessAt: new Date().toISOString()
+          });
+        }
+
+        // 3. Map Quote to Zoho Estimate
+        const estimatePayload = fieldMapper.mapQuoteToZohoEstimate(quote, zohoCustomerId, resolvedItemMap);
+        const quoteHash = hashPayload(estimatePayload);
+
+        if (mapping && mapping.syncStatus === 'SYNCED' && mapping.lastSyncedHash === quoteHash) {
+          logger.debug({ quoteId: quote.id }, 'Quote payload unchanged. Skipping.');
+          continue;
+        }
+
+        let zohoQuoteId = mapping?.zohoId;
+        if (!zohoQuoteId) {
+          zohoQuoteId = (await idempotencyManager.discoverExistingZohoRecord(adapter, 'quote', {
+            firebaseId: quote.id,
+            referenceNumber: quote.rfqNumber || quote.quoteNumber
+          })) || undefined;
+        }
+
+        const result = await adapter.syncQuote(estimatePayload, zohoQuoteId);
+        if (result.action === 'created') jobLog.totalCreated++;
+        else jobLog.totalUpdated++;
+
+        await syncRepository.saveMapping({
+          id: `quote_${quote.id}`,
+          entityType: 'quote',
+          firebaseId: quote.id,
+          zohoId: result.zohoId,
+          lastSyncedHash: quoteHash,
+          syncStatus: 'SYNCED',
+          attemptCount: (mapping?.attemptCount || 0) + 1,
+          lastAttemptAt: new Date().toISOString(),
+          lastSuccessAt: new Date().toISOString(),
+          lastError: null
+        });
+
+        if (quote.updatedAt && quote.updatedAt > highestWatermark) {
+          highestWatermark = quote.updatedAt;
+        }
+      } catch (err: any) {
+        jobLog.totalFailed++;
+        const errorMessage = err.message || 'Unknown Quote sync error';
+        jobLog.errors.push({
+          entityType: 'quote',
+          firebaseId: quote.id,
+          message: errorMessage,
+          timestamp: new Date().toISOString()
+        });
+
+        await syncRepository.saveMapping({
+          id: `quote_${quote.id}`,
+          entityType: 'quote',
+          firebaseId: quote.id,
+          zohoId: mapping?.zohoId || '',
+          lastSyncedHash: mapping?.lastSyncedHash || '',
+          syncStatus: 'FAILED',
+          attemptCount: (mapping?.attemptCount || 0) + 1,
+          lastAttemptAt: new Date().toISOString(),
+          lastError: errorMessage
+        });
+
+        logger.error({ quoteId: quote.id, error: errorMessage }, 'Failed to sync quote');
+      }
+    }
+
+    // Update quote checkpoint
+    await syncRepository.updateCheckpoint({
+      id: 'quote',
+      lastWatermark: highestWatermark,
+      lastSyncCompletedAt: new Date().toISOString(),
+      status: 'IDLE',
+      totalProcessedCount: checkpoint.totalProcessedCount + quotes.length
     });
   }
 

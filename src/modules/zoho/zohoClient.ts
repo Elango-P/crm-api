@@ -49,7 +49,9 @@ export class ZohoClient {
         contact: { contact_id: `mock_contact_${Date.now()}` },
         item: { item_id: `mock_item_${Date.now()}` },
         salesorder: { salesorder_id: `mock_so_${Date.now()}` },
-        invoice: { invoice_id: `mock_inv_${Date.now()}` }
+        invoice: { invoice_id: `mock_inv_${Date.now()}` },
+        estimate: { estimate_id: `mock_est_${Date.now()}` },
+        quote: { quote_id: `mock_quote_${Date.now()}` }
       } as any;
     }
 

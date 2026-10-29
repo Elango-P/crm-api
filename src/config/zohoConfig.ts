@@ -1,0 +1,98 @@
+import { config } from './environment.js';
+import { zohoTokenService } from '../services/zohoTokenService.js';
+
+export interface SanitizedZohoConfig {
+  product: string;
+  clientId: string;
+  clientSecretConfigured: boolean;
+  redirectUri: string;
+  refreshTokenConfigured: boolean;
+  scopes: string[];
+  accountsUrl: string;
+  apiBaseUrl: string;
+  organizationIdConfigured: boolean;
+  organizationId?: string;
+  dataCenter: string;
+}
+
+export function getDataCenterFromUrl(url: string): string {
+  try {
+    const hostname = new URL(url).hostname.toLowerCase();
+    if (hostname.endsWith('.in')) return 'IN';
+    if (hostname.endsWith('.eu')) return 'EU';
+    if (hostname.endsWith('.com.au')) return 'AU';
+    if (hostname.endsWith('.jp')) return 'JP';
+    if (hostname.endsWith('.ca')) return 'CA';
+    return 'US';
+  } catch {
+    return 'US';
+  }
+}
+
+export function isZohoConfigured(): boolean {
+  return zohoTokenService.isConfigured();
+}
+
+export function validateZohoConfig(): { isValid: boolean; missing: string[] } {
+  const missing: string[] = [];
+
+  if (!config.ZOHO_CLIENT_ID || config.ZOHO_CLIENT_ID === 'placeholder_client_id') {
+    missing.push('ZOHO_CLIENT_ID');
+  }
+  if (!config.ZOHO_CLIENT_SECRET || config.ZOHO_CLIENT_SECRET === 'placeholder_client_secret') {
+    missing.push('ZOHO_CLIENT_SECRET');
+  }
+  if (!config.ZOHO_REFRESH_TOKEN || config.ZOHO_REFRESH_TOKEN === 'placeholder_refresh_token') {
+    missing.push('ZOHO_REFRESH_TOKEN');
+  }
+  if (!config.ZOHO_ORGANIZATION_ID) {
+    missing.push('ZOHO_ORGANIZATION_ID');
+  }
+
+  return {
+    isValid: missing.length === 0,
+    missing
+  };
+}
+
+export function getSanitizedZohoConfig(): SanitizedZohoConfig {
+  return {
+    product: config.ZOHO_PRODUCT,
+    clientId:
+      config.ZOHO_CLIENT_ID && config.ZOHO_CLIENT_ID !== 'placeholder_client_id'
+        ? `${config.ZOHO_CLIENT_ID.slice(0, 8)}...`
+        : 'Not Configured',
+    clientSecretConfigured:
+      Boolean(config.ZOHO_CLIENT_SECRET) && config.ZOHO_CLIENT_SECRET !== 'placeholder_client_secret',
+    redirectUri: config.ZOHO_REDIRECT_URI,
+    refreshTokenConfigured: Boolean(zohoTokenService.getEffectiveRefreshToken()),
+    scopes: config.ZOHO_OAUTH_SCOPES.split(',').map((s) => s.trim()).filter(Boolean),
+    accountsUrl: config.ZOHO_ACCOUNTS_URL,
+    apiBaseUrl: config.ZOHO_API_BASE_URL,
+    organizationIdConfigured: Boolean(config.ZOHO_ORGANIZATION_ID),
+    organizationId: config.ZOHO_ORGANIZATION_ID || undefined,
+    dataCenter: getDataCenterFromUrl(config.ZOHO_ACCOUNTS_URL)
+  };
+}
+
+export function verifyScopeCoverage(requiredScopes: string[]): { hasCoverage: boolean; missingScopes: string[] } {
+  const configuredScopes = config.ZOHO_OAUTH_SCOPES.split(',').map((s) => s.trim().toLowerCase());
+  const hasFullAccess = configuredScopes.some((s) => s.includes('fullaccess'));
+
+  if (hasFullAccess) {
+    return { hasCoverage: true, missingScopes: [] };
+  }
+
+  const missingScopes = requiredScopes.filter((req) => {
+    const reqLower = req.toLowerCase();
+    // E.g. ZohoBooks.contacts.ALL covers ZohoBooks.contacts.READ
+    const baseModule = reqLower.split('.')[0] + '.' + (reqLower.split('.')[1] || '');
+    const hasAll = configuredScopes.includes(`${baseModule}.all`);
+    return !configuredScopes.includes(reqLower) && !hasAll;
+  });
+
+  return {
+    hasCoverage: missingScopes.length === 0,
+    missingScopes
+  };
+}
