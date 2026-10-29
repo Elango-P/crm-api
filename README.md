@@ -252,7 +252,52 @@ npm start
 
 ---
 
-## 6. REST API Reference
+## 6. Commands to Sync Data to Zoho ERP
+
+### 1. One-Click CLI Commands
+
+| Command | Description |
+|---|---|
+| `npm.cmd run sync:all` | **Full Sync**: Automatically creates missing Customers, Items/SKUs, Quotes, and Sales Orders in Zoho ERP in one go. |
+| `npm.cmd run sync:quotes` | **Sync Quotes**: Syncs all quote documents from Firestore to Zoho ERP Estimates. Auto-creates missing contacts and line-item SKUs. |
+| `npm.cmd run sync:quotes -- --force` | **Force Re-sync Quotes**: Clears stale mock mappings/checkpoints and re-pushes all quotes directly to Zoho ERP. |
+| `npm.cmd run start:worker` | **Automated Background Worker**: Runs continuously in the background, auto-syncing new and updated CRM records every 5 minutes. |
+| `npm.cmd run firestore:verify` | **Verify Data**: Inspects documents across all Firestore collections (`quotes`, `sales_orders`, `rfqs`, `customers`, `vendors`) directly in your terminal. |
+| `npm.cmd run zoho:token <AUTH_CODE>` | **Generate Refresh Token**: Exchanges a Zoho grant code for a permanent refresh token and saves it to `.env`. |
+
+### 2. Triggering Sync via REST API (cURL / PowerShell)
+
+All administrative endpoints require the `x-api-key` header (default in development: `dev-admin-insecure-api-key-for-local-testing-only`):
+
+* **Sync All Data (Quotes, Orders, Customers):**
+  ```powershell
+  Invoke-RestMethod -Method POST -Uri "http://localhost:4000/api/zoho/sync/all" -Headers @{"x-api-key"="dev-admin-insecure-api-key-for-local-testing-only"}
+  ```
+
+* **Sync Quotes Only:**
+  ```powershell
+  Invoke-RestMethod -Method POST -Uri "http://localhost:4000/api/zoho/sync/quotes" -Headers @{"x-api-key"="dev-admin-insecure-api-key-for-local-testing-only"}
+  ```
+
+* **Sync Sales Orders Only:**
+  ```powershell
+  Invoke-RestMethod -Method POST -Uri "http://localhost:4000/api/zoho/sync/orders" -Headers @{"x-api-key"="dev-admin-insecure-api-key-for-local-testing-only"}
+  ```
+
+* **Sync Customers / Contacts Only:**
+  ```powershell
+  Invoke-RestMethod -Method POST -Uri "http://localhost:4000/api/zoho/sync/users" -Headers @{"x-api-key"="dev-admin-insecure-api-key-for-local-testing-only"}
+  ```
+
+### 3. Zoho OAuth 1-Click Authorization Link
+
+To link or refresh your Zoho OAuth authorization:
+* Visit in your browser: `http://localhost:4000/api/zoho/auth`
+* Click **Accept / Approve** &rarr; the server automatically saves `ZOHO_REFRESH_TOKEN` to your `.env` file and caches the access token on disk.
+
+---
+
+## 7. REST API Reference
 
 All administrative endpoints under `/api/v1/sync` require authentication using the header:
 `x-api-key: <ADMIN_API_KEY>` or `Authorization: Bearer <ADMIN_API_KEY>`.
@@ -359,7 +404,7 @@ x-api-key: <ADMIN_API_KEY>
 
 ---
 
-## 7. Sample Data Seeding & CRM Endpoints
+## 8. Sample Data Seeding & CRM Endpoints
 
 ### 1. Seeding Sample Data to Live Cloud Firestore
 You can seed realistic, linked B2B manufacturing sample data (Quotes, Sales Orders, Invoices, Vendors, Customers, RFQs) with a single command:
@@ -393,7 +438,7 @@ npm.cmd run excel:sample
 
 ---
 
-## 7. Zoho Books API & OAuth 2.0 Integration
+## 9. Zoho Books API & OAuth 2.0 Integration
 
 The API provides a fully compliant **Zoho Books API v3** integration with automated OAuth 2.0 authorization-code flow, token refresh caching, organization information, and contact management.
 
@@ -418,7 +463,7 @@ The API provides a fully compliant **Zoho Books API v3** integration with automa
 
 ---
 
-## 8. Importing RFQ, BOM & Costing from Excel (Google Drive / Local)
+## 10. Importing RFQ, BOM & Costing from Excel (Google Drive / Local)
 
 If your engineering and sales team manages **RFQ**, **BOM (Bill of Materials)**, and **Costing** in Excel files connected to Google Drive, you can use the built-in importer to parse, merge, and persist them into Firestore, and immediately trigger synchronization to Zoho ERP.
 

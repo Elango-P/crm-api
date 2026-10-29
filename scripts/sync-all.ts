@@ -59,3 +59,4 @@ main()
     console.error('Fatal sync failure:', err);
     process.exit(1);
   });
+
