@@ -17,6 +17,7 @@
     "firestore:verify": "tsx scripts/verify-firestore-data.ts",
     "firestore:clean": "tsx scripts/remove-records.ts",
     "sync:quotes": "tsx scripts/sync-quotes.ts",
+    "sync:all": "tsx scripts/sync-all.ts",
     "zoho:token": "tsx scripts/generate-zoho-token.ts",
     "test": "vitest run",
     "test:watch": "vitest",
