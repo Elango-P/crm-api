@@ -1,4 +1,4 @@
-export type EntityType = 'customer' | 'item' | 'sales_order' | 'invoice' | 'quote';
+export type EntityType = 'customer' | 'item' | 'sales_order' | 'invoice' | 'quote' | 'user' | 'order' | 'bom';
 
 export type SyncStatus = 'PENDING' | 'SYNCED' | 'FAILED';
 
@@ -7,6 +7,9 @@ export interface SyncMapping {
   entityType: EntityType;
   firebaseId: string;
   zohoId: string;
+  sourceCollection?: string;
+  zohoModule?: string;
+  sourceUpdatedAt?: string;
   lastSyncedHash: string;
   syncStatus: SyncStatus;
   attemptCount: number;

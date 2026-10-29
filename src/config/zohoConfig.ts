@@ -85,10 +85,27 @@ export function verifyScopeCoverage(requiredScopes: string[]): { hasCoverage: bo
 
   const missingScopes = requiredScopes.filter((req) => {
     const reqLower = req.toLowerCase();
-    // E.g. ZohoBooks.contacts.ALL covers ZohoBooks.contacts.READ
-    const baseModule = reqLower.split('.')[0] + '.' + (reqLower.split('.')[1] || '');
-    const hasAll = configuredScopes.includes(`${baseModule}.all`);
-    return !configuredScopes.includes(reqLower) && !hasAll;
+    const parts = reqLower.split('.');
+    const moduleName = parts.length > 1 ? parts[1] : parts[0];
+    const op = parts.length > 2 ? parts[2] : 'all';
+
+    // Direct exact match
+    if (configuredScopes.includes(reqLower)) return false;
+
+    // Direct base module .all match (e.g. ERP.contacts.ALL covers ERP.contacts.READ)
+    const baseModule = parts[0] + '.' + moduleName;
+    if (configuredScopes.includes(`${baseModule}.all`)) return false;
+
+    // Cross-product equivalent module match with .ALL or matching operation
+    const coversModule = configuredScopes.some((s) => {
+      const sParts = s.split('.');
+      const sModule = sParts.length > 1 ? sParts[1] : sParts[0];
+      const sOp = sParts.length > 2 ? sParts[2] : '';
+      return sModule === moduleName && (sOp === 'all' || sOp === op);
+    });
+    if (coversModule) return false;
+
+    return true;
   });
 
   return {

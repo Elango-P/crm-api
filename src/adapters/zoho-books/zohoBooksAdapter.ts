@@ -50,7 +50,7 @@ export class ZohoBooksAdapter implements IZohoAdapter {
     }
 
     logger.info({ soNumber: order.salesorder_number }, 'Creating new Zoho Books sales order');
-    const res = await this.client.post('/salesorders', order);
+    const res = await this.client.post('/salesorders', order, { ignore_auto_number_generation: 'true' });
     const zohoId = res.salesorder?.salesorder_id || (res as any).data?.id || `books_so_${Date.now()}`;
     return { zohoId, action: 'created' };
   }
@@ -64,7 +64,7 @@ export class ZohoBooksAdapter implements IZohoAdapter {
     }
 
     logger.info({ estimateNumber: quote.estimate_number }, 'Creating new Zoho Books estimate/quote');
-    const res = await this.client.post('/estimates', quote);
+    const res = await this.client.post('/estimates', quote, { ignore_auto_number_generation: 'true' });
     const zohoId = res.estimate?.estimate_id || (res as any).quote?.quote_id || (res as any).data?.id || `books_est_${Date.now()}`;
     return { zohoId, action: 'created' };
   }

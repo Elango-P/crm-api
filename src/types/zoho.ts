@@ -87,6 +87,23 @@ export interface ZohoEstimatePayload {
   discount?: number;
 }
 
+export interface ZohoBomComponent {
+  item_id: string;
+  quantity: number;
+  rate?: number;
+  unit?: string;
+  notes?: string;
+}
+
+export interface ZohoBomPayload {
+  bom_name: string;
+  item_id: string;
+  output_quantity: number;
+  components: ZohoBomComponent[];
+  version?: string;
+  notes?: string;
+}
+
 export interface ZohoApiResponse<T = any> {
   code: number;
   message: string;
@@ -102,5 +119,7 @@ export interface ZohoApiResponse<T = any> {
   estimates?: T[];
   quote?: T;
   quotes?: T[];
+  bom?: T;
+  billofmaterials?: T[];
   data?: T[];
 }

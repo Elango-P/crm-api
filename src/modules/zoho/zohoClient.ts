@@ -51,7 +51,8 @@ export class ZohoClient {
         salesorder: { salesorder_id: `mock_so_${Date.now()}` },
         invoice: { invoice_id: `mock_inv_${Date.now()}` },
         estimate: { estimate_id: `mock_est_${Date.now()}` },
-        quote: { quote_id: `mock_quote_${Date.now()}` }
+        quote: { quote_id: `mock_quote_${Date.now()}` },
+        bom: { bom_id: `mock_bom_${Date.now()}` }
       } as any;
     }
 
@@ -84,6 +85,9 @@ export class ZohoClient {
 
           return response.data;
         } catch (error: any) {
+          if (error.response?.data?.message) {
+            error.message = `Zoho API Error (${error.response.data.code || error.response.status}): ${error.response.data.message}`;
+          }
           // If 401 Unauthorized, invalidate token and trigger retry
           if (error.response?.status === 401) {
             logger.warn('Received 401 Unauthorized from Zoho API. Invalidating token.');

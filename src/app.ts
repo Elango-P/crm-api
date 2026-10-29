@@ -5,10 +5,14 @@ import { healthRouter } from './routes/healthRoutes.js';
 import { syncRouter } from './routes/syncRoutes.js';
 import { crmRouter } from './routes/crmRoutes.js';
 import { zohoRouter } from './routes/zohoRoutes.js';
+import { zohoSyncRouter } from './routes/zoho-sync.routes.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
 export function createApp(): Express {
   const app = express();
+
+  // Trust Cloudflare and reverse proxies
+  app.set('trust proxy', 1);
 
   // Security headers
   app.use(helmet());
@@ -30,6 +34,7 @@ export function createApp(): Express {
   app.use('/', healthRouter);
   app.use('/api/v1/sync', syncRouter);
   app.use('/api/v1', crmRouter);
+  app.use('/api/zoho/sync', zohoSyncRouter);
   app.use('/api/zoho', zohoRouter);
 
   // 404 handler

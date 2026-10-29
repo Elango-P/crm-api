@@ -1,10 +1,11 @@
 import { z } from 'zod';
-import { CustomerRecord, ProductLine, RfqRecord, QuoteRecord } from '../../types/crm.js';
+import { CustomerRecord, ProductLine, RfqRecord, QuoteRecord, SalesOrderRecord } from '../../types/crm.js';
 import {
   ZohoContactPayload,
   ZohoItemPayload,
   ZohoSalesOrderPayload,
-  ZohoEstimatePayload
+  ZohoEstimatePayload,
+  ZohoBomPayload
 } from '../../types/zoho.js';
 
 // Validation Schemas
@@ -148,7 +149,8 @@ export class FieldMapper {
     zohoCustomerId: string,
     resolvedItemMap: Map<string, string>
   ): ZohoEstimatePayload {
-    const date = quote.issueDate || (quote.createdAt ? quote.createdAt.split('T')[0] : new Date().toISOString().split('T')[0]);
+    const rawQuote = quote as any;
+    const date = rawQuote.issueDate || rawQuote.issuedDate || (quote.createdAt ? quote.createdAt.split('T')[0] : new Date().toISOString().split('T')[0]);
     const expiryDate = quote.expiryDate || undefined;
 
     const lineItems = (quote.lineItems || []).map((line) => {
@@ -181,6 +183,81 @@ export class FieldMapper {
       line_items: lineItems,
       notes: quote.notes && quote.notes.length > 0 ? quote.notes.join('\n') : `Quote ${quote.quoteNumber}`,
       terms: quote.paymentTerms
+    };
+
+    return payload;
+  }
+
+  /**
+   * Map SalesOrderRecord -> ZohoSalesOrderPayload
+   */
+  mapSalesOrderToZoho(
+    order: SalesOrderRecord,
+    zohoCustomerId: string,
+    resolvedItemMap: Map<string, string>
+  ): ZohoSalesOrderPayload {
+    const date = order.orderDate || (order.createdAt ? order.createdAt.split('T')[0] : new Date().toISOString().split('T')[0]);
+    const shipmentDate = order.expectedShipmentDate || undefined;
+
+    const lineItems = (order.lineItems || []).map((line) => {
+      const zohoItemId = resolvedItemMap.get(line.sku);
+      return {
+        item_id: zohoItemId,
+        name: line.description,
+        description: `SKU: ${line.sku}`,
+        rate: line.unitPrice,
+        quantity: line.qty
+      };
+    });
+
+    if (lineItems.length === 0) {
+      lineItems.push({
+        item_id: undefined,
+        name: `Order Item - ${order.salesOrderNumber}`,
+        description: `Sales Order Reference: ${order.salesOrderNumber}`,
+        rate: order.totalAmount || 0,
+        quantity: 1
+      });
+    }
+
+    const payload: ZohoSalesOrderPayload = {
+      customer_id: zohoCustomerId,
+      salesorder_number: order.salesOrderNumber,
+      reference_number: order.quoteNumber || order.rfqNumber || order.salesOrderNumber,
+      date,
+      shipment_date: shipmentDate,
+      line_items: lineItems,
+      notes: order.notes && order.notes.length > 0 ? order.notes.join('\n') : `Sales Order ${order.salesOrderNumber}`
+    };
+
+    return payload;
+  }
+
+  /**
+   * Map RfqRecord / BOM -> ZohoBomPayload
+   */
+  mapRfqToZohoBom(
+    rfq: RfqRecord,
+    finishedItemId: string,
+    resolvedItemMap: Map<string, string>
+  ): ZohoBomPayload {
+    const components = (rfq.productLines || []).map((line) => {
+      const rawItemId = resolvedItemMap.get(line.sku) || '';
+      return {
+        item_id: rawItemId,
+        quantity: line.qty,
+        rate: line.unitPrice,
+        notes: line.description
+      };
+    });
+
+    const payload: ZohoBomPayload = {
+      bom_name: `${rfq.productName} BOM (${rfq.partNumber || rfq.rfqNumber})`,
+      item_id: finishedItemId,
+      output_quantity: rfq.quantity || 1,
+      components,
+      version: '1.0',
+      notes: `Generated from RFQ ${rfq.rfqNumber}. Total Value: ${rfq.totalValue}`
     };
 
     return payload;

@@ -22,9 +22,18 @@ export class SyncRepository {
 
     if (isRealFirebaseConfigured() && db) {
       try {
-        const doc = await db.collection('_sync_mappings').doc(key).get();
+        // Try zoho_sync_map first, then fallback to _sync_mappings
+        let doc = await db.collection('zoho_sync_map').doc(key).get();
+        if (!doc.exists) {
+          doc = await db.collection('_sync_mappings').doc(key).get();
+        }
         if (doc.exists) {
-          return doc.data() as SyncMapping;
+          const data = doc.data() as SyncMapping;
+          // Invalidate mock records if live credentials are active
+          if (data.zohoId && data.zohoId.startsWith('mock_')) {
+            return null;
+          }
+          return data;
         }
         return null;
       } catch (err: any) {
@@ -32,7 +41,11 @@ export class SyncRepository {
       }
     }
 
-    return this.inMemoryMappings.get(key) || null;
+    const inMem = this.inMemoryMappings.get(key) || null;
+    if (inMem && inMem.zohoId && inMem.zohoId.startsWith('mock_')) {
+      return null;
+    }
+    return inMem;
   }
 
   /**
@@ -44,7 +57,10 @@ export class SyncRepository {
 
     if (isRealFirebaseConfigured() && db) {
       try {
-        await db.collection('_sync_mappings').doc(key).set(mapping, { merge: true });
+        const batch = db.batch();
+        batch.set(db.collection('zoho_sync_map').doc(key), mapping, { merge: true });
+        batch.set(db.collection('_sync_mappings').doc(key), mapping, { merge: true });
+        await batch.commit();
         return;
       } catch (err: any) {
         logger.error({ error: err.message, key }, 'Failed to save mapping to Firestore');

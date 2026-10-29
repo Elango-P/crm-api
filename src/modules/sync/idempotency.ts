@@ -3,6 +3,10 @@ import { SyncMapping } from '../../types/sync.js';
 import { IZohoAdapter } from '../../adapters/zohoAdapterInterface.js';
 import { logger } from '../../utils/logger.js';
 
+export function computeIdempotencyHash(payload: unknown): string {
+  return hashPayload(payload);
+}
+
 export class IdempotencyManager {
   /**
    * Determine if the payload has changed since the last successful sync

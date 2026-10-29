@@ -21,8 +21,38 @@ export class ZohoTokenService {
   private runtimeRefreshToken: string | null = null;
 
   constructor() {
+    this.loadCachedToken();
     // Clean up expired states every 5 minutes
     setInterval(() => this.cleanupExpiredStates(), 5 * 60 * 1000).unref();
+  }
+
+  private getCachePath(): string {
+    return path.resolve(process.cwd(), '.zoho_token_cache.json');
+  }
+
+  private loadCachedToken(): void {
+    try {
+      const cachePath = this.getCachePath();
+      if (fs.existsSync(cachePath)) {
+        const raw = fs.readFileSync(cachePath, 'utf8');
+        const data = JSON.parse(raw);
+        if (data.accessToken && data.tokenExpiresAt && data.tokenExpiresAt > Date.now() + 60000) {
+          this.accessToken = data.accessToken;
+          this.tokenExpiresAt = data.tokenExpiresAt;
+        }
+      }
+    } catch {
+      // ignore cache read failure
+    }
+  }
+
+  private saveCachedToken(accessToken: string, expiresAt: number): void {
+    try {
+      const cachePath = this.getCachePath();
+      fs.writeFileSync(cachePath, JSON.stringify({ accessToken, tokenExpiresAt: expiresAt }), 'utf8');
+    } catch {
+      // ignore cache write failure
+    }
   }
 
   /**
@@ -50,7 +80,14 @@ export class ZohoTokenService {
     if (!state) return false;
 
     const record = this.activeStates.get(state);
-    if (!record) return false;
+    if (!record) {
+      // In development mode or if server restarted during oauth handshake, accept valid state string
+      if (config.NODE_ENV === 'development' && state.length >= 8) {
+        logger.warn({ state }, 'Accepting state without active record in development mode');
+        return true;
+      }
+      return false;
+    }
 
     // Delete immediately to prevent replay
     this.activeStates.delete(state);
@@ -254,17 +291,25 @@ export class ZohoTokenService {
 
       this.accessToken = data.access_token;
       this.tokenExpiresAt = Date.now() + (data.expires_in || 3600) * 1000;
+      this.saveCachedToken(this.accessToken, this.tokenExpiresAt);
 
       logger.info({ expiresIn: data.expires_in }, 'Successfully renewed Zoho access token');
       return this.accessToken;
     } catch (err: any) {
       const status = err.response?.status;
       const errorDetail = err.response?.data?.error || err.message;
+      const errorDesc = err.response?.data?.error_description || '';
 
       logger.error(
-        { status, error: errorDetail },
+        { status, error: errorDetail, description: errorDesc },
         'Failed to exchange refresh token with Zoho accounts'
       );
+
+      if (errorDesc.includes('too many requests') || errorDesc.includes('continuously')) {
+        const error = new Error(`Zoho API Rate Limited: ${errorDesc}`);
+        (error as any).statusCode = 429;
+        throw error;
+      }
 
       if (status === 400 || status === 401 || errorDetail === 'invalid_token') {
         this.invalidateToken();
@@ -329,6 +374,12 @@ export class ZohoTokenService {
     logger.warn('Invalidating cached Zoho access token');
     this.accessToken = null;
     this.tokenExpiresAt = 0;
+    try {
+      const cachePath = this.getCachePath();
+      if (fs.existsSync(cachePath)) fs.unlinkSync(cachePath);
+    } catch {
+      // ignore
+    }
   }
 
   /**

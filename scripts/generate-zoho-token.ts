@@ -17,15 +17,18 @@ async function main() {
 🔑 Zoho OAuth Refresh Token Generator
 ====================================
 Usage:
-  npx tsx scripts/generate-zoho-token.ts <YOUR_GENERATED_CODE>
+  npm.cmd run zoho:token <YOUR_GENERATED_CODE>
 
 Steps to get the code:
-1. Go to https://api-console.zoho.com/ (or https://api-console.zoho.in/ if in India)
+1. Go to https://api-console.zoho.in/ (or https://api-console.zoho.com/)
 2. Open your Client (or Self-Client)
 3. Click "Generate Code"
-4. Scope: ZohoBooks.contacts.ALL,ZohoBooks.items.ALL,ZohoBooks.salesorders.ALL,ZohoBooks.settings.READ
+4. Scopes:
+   - For Zoho ERP / Finance: ${config.ZOHO_OAUTH_SCOPES}
+   - Or Zoho Books: ZohoBooks.contacts.ALL,ZohoBooks.estimates.ALL,ZohoBooks.items.ALL,ZohoBooks.salesorders.ALL,ZohoBooks.settings.READ
 5. Duration: 10 minutes
-6. Click Generate, copy the code and run this command with that code.
+6. Click Generate, copy the code and run:
+   npm.cmd run zoho:token <YOUR_CODE>
 `);
     process.exit(1);
   }
